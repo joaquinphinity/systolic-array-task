@@ -4,9 +4,6 @@
 // Module: systolic_array_2x2
 // Description: 2x2 Systolic Array for Matrix Multiplication
 //
-// TODO: Implement the 2x2 systolic array by instantiating 4 mac_pe modules
-//       and wiring them together according to the specification.
-//
 // See docs/Specification.md for detailed requirements.
 //-----------------------------------------------------------------------------
 
@@ -41,19 +38,6 @@ module systolic_array_2x2 (
     output wire [31:0] psum_col1_out
 );
 
-    // TODO: Implement the systolic array
-    // 
-    // Requirements:
-    // 1. Instantiate 4 mac_pe modules in a 2x2 grid
-    // 2. Wire horizontal connections (activation flow: left to right)
-    // 3. Wire vertical connections (partial sum flow: top to bottom)
-    // 4. Route weight_load to selected column based on weight_col_sel
-    // 5. Broadcast enable and weight_switch to all PEs
-
-    // Placeholder outputs (remove when implementing)
-    assign act_row0_out = 8'h00;
-    assign act_row1_out = 8'h00;
-    assign psum_col0_out = 32'h00000000;
-    assign psum_col1_out = 32'h00000000;
+    // Your implementation here
 
 endmodule
