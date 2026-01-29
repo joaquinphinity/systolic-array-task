@@ -393,10 +393,11 @@ def test_systolic_array_hidden_runner():
     
     sim = os.getenv("SIM", "icarus")
     proj_path = Path(__file__).resolve().parent
+    sources_path = proj_path.parent / "sources"
     
     sources = [
-        proj_path / "mac_pe.sv",
-        proj_path / "systolic_array_2x2.sv",
+        sources_path / "mac_pe.sv",
+        sources_path / "systolic_array_2x2.sv",
     ]
     
     runner = get_runner(sim)
