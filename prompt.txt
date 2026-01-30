@@ -1,38 +1,44 @@
-Implement a 2x2 systolic array module in sources/systolic_array_2x2.sv.
+Implement a 4x4 systolic array module in sources/systolic_array_4x4.sv.
 
-The systolic array is a core building block for TPU-style matrix multiplication accelerators. You need to instantiate 4 MAC Processing Elements (mac_pe) and wire them together.
+The systolic array is a core building block for TPU-style matrix multiplication accelerators. You need to instantiate 16 MAC Processing Elements (mac_pe) and wire them together in a 4x4 grid.
 
 ## Your Task
 
-Complete the implementation of `systolic_array_2x2` in `sources/systolic_array_2x2.sv`.
+Complete the implementation of `systolic_array_4x4` in `sources/systolic_array_4x4.sv`.
 
 The MAC PE module (`mac_pe`) is already provided in `sources/mac_pe.sv` - you should use it as-is.
 
 ## Requirements
 
-1. **Instantiate 4 mac_pe modules** in a 2x2 grid:
-   - pe_00 (row 0, column 0)
-   - pe_01 (row 0, column 1)
-   - pe_10 (row 1, column 0)
-   - pe_11 (row 1, column 1)
+1. **Instantiate 16 mac_pe modules** in a 4x4 grid:
+   - pe_00, pe_01, pe_02, pe_03 (row 0)
+   - pe_10, pe_11, pe_12, pe_13 (row 1)
+   - pe_20, pe_21, pe_22, pe_23 (row 2)
+   - pe_30, pe_31, pe_32, pe_33 (row 3)
 
 2. **Wire horizontal connections** (activation data flows left to right):
-   - Row 0: act_row0_in → pe_00 → pe_01 → act_row0_out
-   - Row 1: act_row1_in → pe_10 → pe_11 → act_row1_out
+   - Row 0: act_row0_in -> pe_00 -> pe_01 -> pe_02 -> pe_03 -> act_row0_out
+   - Row 1: act_row1_in -> pe_10 -> pe_11 -> pe_12 -> pe_13 -> act_row1_out
+   - Row 2: act_row2_in -> pe_20 -> pe_21 -> pe_22 -> pe_23 -> act_row2_out
+   - Row 3: act_row3_in -> pe_30 -> pe_31 -> pe_32 -> pe_33 -> act_row3_out
 
 3. **Wire vertical connections** (partial sums flow top to bottom):
-   - Column 0: psum_col0_in → pe_00 → pe_10 → psum_col0_out
-   - Column 1: psum_col1_in → pe_01 → pe_11 → psum_col1_out
+   - Column 0: psum_col0_in -> pe_00 -> pe_10 -> pe_20 -> pe_30 -> psum_col0_out
+   - Column 1: psum_col1_in -> pe_01 -> pe_11 -> pe_21 -> pe_31 -> psum_col1_out
+   - Column 2: psum_col2_in -> pe_02 -> pe_12 -> pe_22 -> pe_32 -> psum_col2_out
+   - Column 3: psum_col3_in -> pe_03 -> pe_13 -> pe_23 -> pe_33 -> psum_col3_out
 
 4. **Implement weight loading logic**:
-   - When weight_col_sel=0: route weight_load to column 0 PEs only
-   - When weight_col_sel=1: route weight_load to column 1 PEs only
-   - weight_row0_data goes to the row 0 PE of the selected column
-   - weight_row1_data goes to the row 1 PE of the selected column
+   - weight_col_sel is a 2-bit signal selecting column 0, 1, 2, or 3
+   - When weight_col_sel=00: route weight_load to column 0 PEs only
+   - When weight_col_sel=01: route weight_load to column 1 PEs only
+   - When weight_col_sel=10: route weight_load to column 2 PEs only
+   - When weight_col_sel=11: route weight_load to column 3 PEs only
+   - weight_rowX_data goes to the row X PE of the selected column
 
 5. **Broadcast control signals**:
-   - enable goes to all PEs
-   - weight_switch goes to all PEs
+   - enable goes to all 16 PEs
+   - weight_switch goes to all 16 PEs
 
 ## Interface Summary
 
@@ -41,14 +47,13 @@ Inputs:
 - enable: Enable computation
 - weight_load: Load weight into shadow buffer
 - weight_switch: Switch to new weights
-- weight_col_sel: Select column for weight loading (0 or 1)
-- weight_row0_data[7:0]: Weight data for row 0
-- weight_row1_data[7:0]: Weight data for row 1
-- act_row0_in[7:0], act_row1_in[7:0]: Activation inputs
-- psum_col0_in[31:0], psum_col1_in[31:0]: Partial sum inputs
+- weight_col_sel[1:0]: Select column for weight loading (0-3)
+- weight_row0_data[7:0], weight_row1_data[7:0], weight_row2_data[7:0], weight_row3_data[7:0]: Weight data for each row
+- act_row0_in[7:0], act_row1_in[7:0], act_row2_in[7:0], act_row3_in[7:0]: Activation inputs
+- psum_col0_in[31:0], psum_col1_in[31:0], psum_col2_in[31:0], psum_col3_in[31:0]: Partial sum inputs
 
 Outputs:
-- act_row0_out[7:0], act_row1_out[7:0]: Activation outputs
-- psum_col0_out[31:0], psum_col1_out[31:0]: Partial sum outputs
+- act_row0_out[7:0], act_row1_out[7:0], act_row2_out[7:0], act_row3_out[7:0]: Activation outputs
+- psum_col0_out[31:0], psum_col1_out[31:0], psum_col2_out[31:0], psum_col3_out[31:0]: Partial sum outputs
 
 See docs/Specification.md for the complete specification.
