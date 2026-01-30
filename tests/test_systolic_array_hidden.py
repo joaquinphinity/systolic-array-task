@@ -209,21 +209,21 @@ async def test_single_column_computation(dut):
     
     await reset_dut(dut)
     
-    # Load weight=2 into column 0 only (all rows)
-    weights = [[0]*4 for _ in range(4)]
-    weights[0][0] = 2  # PE[0,0]
-    weights[1][0] = 2  # PE[1,0]
-    weights[2][0] = 2  # PE[2,0]
-    weights[3][0] = 2  # PE[3,0]
-    await load_weights(dut, weights)
-    
     # A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
-    # B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]]
-    # C[0][0] = 1*2 + 1*2 + 1*2 + 1*2 = 8
+    # B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]] (weights col 0 = 2)
+    # C[0][0] = sum(A[0][k] * B[k][0] for k in range(4)) = 1*2 + 0 + 0 + 0 = 2
+    # Each row of C col 0 = 2
+    # Final psum_col0_out = sum of all rows = 2+2+2+2 = 8
     A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
-    C = await run_systolic_and_capture(dut, A)
+    B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]]
     
-    assert C[0] == 8, f"Expected C[0]=8, got {C[0]}"
+    results = await run_systolic_and_capture(dut, A, B)
+    
+    # Check final result (after all data has propagated)
+    final_col0 = results[max(results.keys())][0]
+    # Actually need to find when the valid result appears
+    # For a 4x4 systolic array with diagonal feeding, result appears at cycle 10
+    assert results[10][0] == 8, f"Expected col0=8 at cycle 10, got {results[10][0]}"
     dut._log.info("test_single_column_computation PASSED")
 
 
@@ -235,27 +235,24 @@ async def test_column_routing_matrix(dut):
     
     await reset_dut(dut)
     
-    # Load different weights in each column (uniform per column)
-    # col0=1, col1=2, col2=3, col3=4
-    weights = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
-    await load_weights(dut, weights)
-    
-    # Activation matrix: 1 in first column only
-    # A[i][j] = 1 if j==0 else 0
-    A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
-    
-    # C = A @ B where B = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
-    # Each row of A has one 1 in col0, so C[i][j] = B[0][j] = weights[0][j]
+    # A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
+    # B = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
+    # C = A @ B
+    # C[i][j] = sum(A[i][k] * B[k][j] for k in range(4))
+    # C[i][j] = A[i][0] * B[0][j] = 1 * B[0][j] = B[0][j]
     # C = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
-    # Sum down columns: C[j] = 4 * weights[0][j]
-    # C[0] = 4*1 = 4, C[1] = 4*2 = 8, C[2] = 4*3 = 12, C[3] = 4*4 = 16
+    # The psum outputs are column sums: col0=4, col1=8, col2=12, col3=16
+    A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
+    B = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
     
-    C = await run_systolic_and_capture(dut, A)
+    results = await run_systolic_and_capture(dut, A, B)
     
-    assert C[0] == 4, f"Expected C[0]=4, got {C[0]}"
-    assert C[1] == 8, f"Expected C[1]=8, got {C[1]}"
-    assert C[2] == 12, f"Expected C[2]=12, got {C[2]}"
-    assert C[3] == 16, f"Expected C[3]=16, got {C[3]}"
+    # Check results at cycle 10 (when all data has propagated)
+    col0, col1, col2, col3 = results[10]
+    assert col0 == 4, f"Expected col0=4, got {col0}"
+    assert col1 == 8, f"Expected col1=8, got {col1}"
+    assert col2 == 12, f"Expected col2=12, got {col2}"
+    assert col3 == 16, f"Expected col3=16, got {col3}"
     
     dut._log.info("test_column_routing_matrix PASSED")
 
