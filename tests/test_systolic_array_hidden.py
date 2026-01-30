@@ -226,7 +226,7 @@ async def test_single_pe_computation(dut):
     await RisingEdge(dut.clk)
     
     dut.act_row0_in.value = 0
-    await ClockCycles(dut.clk, 8)  # Need more cycles for 4x4 array propagation
+    await ClockCycles(dut.clk, 3)  # Result appears after 4 cycles (4 rows of PEs)
     
     # Result should appear: 7 * 3 = 21
     col0 = signed_32bit(int(dut.psum_col0_out.value))
@@ -263,9 +263,9 @@ async def test_column_routing(dut):
     await RisingEdge(dut.clk)
     
     dut.act_row0_in.value = 0
-    await ClockCycles(dut.clk, 10)  # More cycles for full 4x4 propagation
+    await ClockCycles(dut.clk, 6)  # 4 horizontal + 4 vertical - 1 (first edge already captured)
     
-    # Capture results (10*2=20, 10*3=30, 10*5=50, 10*7=70 passing through 4 rows)
+    # Capture results (10*7=70 at col3 after passing through row 0 PEs and column 3 PEs)
     col3 = signed_32bit(int(dut.psum_col3_out.value))
     assert col3 == 70, f"Expected col3=70, got {col3}"
     
