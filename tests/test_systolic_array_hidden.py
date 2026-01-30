@@ -202,74 +202,62 @@ async def test_activation_passthrough(dut):
 
 
 @cocotb.test()
-async def test_single_pe_computation(dut):
-    """Test single PE multiply-accumulate."""
+async def test_single_column_computation(dut):
+    """Test computation through single column using proper diagonal feeding."""
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
     
     await reset_dut(dut)
     
-    # Load weight=3 into PE[0,0] only
+    # Load weight=2 into column 0 only (all rows)
     weights = [[0]*4 for _ in range(4)]
-    weights[0][0] = 3
+    weights[0][0] = 2  # PE[0,0]
+    weights[1][0] = 2  # PE[1,0]
+    weights[2][0] = 2  # PE[2,0]
+    weights[3][0] = 2  # PE[3,0]
     await load_weights(dut, weights)
     
-    dut.enable.value = 1
-    dut.psum_col0_in.value = 0
-    dut.psum_col1_in.value = 0
-    dut.psum_col2_in.value = 0
-    dut.psum_col3_in.value = 0
-    dut.act_row0_in.value = 7
-    dut.act_row1_in.value = 0
-    dut.act_row2_in.value = 0
-    dut.act_row3_in.value = 0
-    await RisingEdge(dut.clk)
+    # A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
+    # B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]]
+    # C[0][0] = 1*2 + 1*2 + 1*2 + 1*2 = 8
+    A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
+    C = await run_systolic_and_capture(dut, A)
     
-    dut.act_row0_in.value = 0
-    await ClockCycles(dut.clk, 3)  # Result appears after 4 cycles (4 rows of PEs)
-    
-    # Result should appear: 7 * 3 = 21
-    col0 = signed_32bit(int(dut.psum_col0_out.value))
-    assert col0 == 21, f"Expected 21, got {col0}"
-    
-    dut._log.info("test_single_pe_computation PASSED")
+    assert C[0] == 8, f"Expected C[0]=8, got {C[0]}"
+    dut._log.info("test_single_column_computation PASSED")
 
 
 @cocotb.test()
-async def test_column_routing(dut):
-    """Test that weight_col_sel routes to all 4 columns correctly."""
+async def test_column_routing_matrix(dut):
+    """Test that all 4 columns compute correctly using full matrix."""
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
     
     await reset_dut(dut)
     
-    # Load different weights in each column for row 0
-    weights = [[0]*4 for _ in range(4)]
-    weights[0][0] = 2  # col0
-    weights[0][1] = 3  # col1
-    weights[0][2] = 5  # col2
-    weights[0][3] = 7  # col3
+    # Load different weights in each column (uniform per column)
+    # col0=1, col1=2, col2=3, col3=4
+    weights = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
     await load_weights(dut, weights)
     
-    dut.enable.value = 1
-    dut.psum_col0_in.value = 0
-    dut.psum_col1_in.value = 0
-    dut.psum_col2_in.value = 0
-    dut.psum_col3_in.value = 0
-    dut.act_row0_in.value = 10
-    dut.act_row1_in.value = 0
-    dut.act_row2_in.value = 0
-    dut.act_row3_in.value = 0
-    await RisingEdge(dut.clk)
+    # Activation matrix: 1 in first column only
+    # A[i][j] = 1 if j==0 else 0
+    A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
     
-    dut.act_row0_in.value = 0
-    await ClockCycles(dut.clk, 6)  # 4 horizontal + 4 vertical - 1 (first edge already captured)
+    # C = A @ B where B = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
+    # Each row of A has one 1 in col0, so C[i][j] = B[0][j] = weights[0][j]
+    # C = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
+    # Sum down columns: C[j] = 4 * weights[0][j]
+    # C[0] = 4*1 = 4, C[1] = 4*2 = 8, C[2] = 4*3 = 12, C[3] = 4*4 = 16
     
-    # Capture results (10*7=70 at col3 after passing through row 0 PEs and column 3 PEs)
-    col3 = signed_32bit(int(dut.psum_col3_out.value))
-    assert col3 == 70, f"Expected col3=70, got {col3}"
+    C = await run_systolic_and_capture(dut, A)
     
-    dut._log.info("test_column_routing PASSED")
+    assert C[0] == 4, f"Expected C[0]=4, got {C[0]}"
+    assert C[1] == 8, f"Expected C[1]=8, got {C[1]}"
+    assert C[2] == 12, f"Expected C[2]=12, got {C[2]}"
+    assert C[3] == 16, f"Expected C[3]=16, got {C[3]}"
+    
+    dut._log.info("test_column_routing_matrix PASSED")
 
 
 @cocotb.test()
