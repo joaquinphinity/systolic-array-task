@@ -202,42 +202,41 @@ async def test_activation_passthrough(dut):
 
 
 @cocotb.test()
-async def test_single_column_computation(dut):
-    """Test computation through single column using proper diagonal feeding."""
+async def test_uniform_weight_computation(dut):
+    """Test with uniform weight matrix (all 2s)."""
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
     
     await reset_dut(dut)
     
-    # A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
-    # B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]]
-    # C = A @ B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]]
-    # Final psum_col0_out = sum of column 0 = 2+2+2+2 = 8
-    A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
-    B = [[2,0,0,0], [2,0,0,0], [2,0,0,0], [2,0,0,0]]
+    # Full matrix A with non-zero values
+    A = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
+    # Uniform weight matrix B (all 2s)
+    B = [[2,2,2,2], [2,2,2,2], [2,2,2,2], [2,2,2,2]]
     
     C = compute_matrix_product(A, B)
-    expected_col0 = sum(C[i][0] for i in range(4))  # Should be 8
+    expected_sums = [sum(C[i][j] for i in range(4)) for j in range(4)]
     
     results = await run_systolic_and_capture(dut, A, B)
     
-    # Check final cycle like the other passing tests do
     final = results[max(results.keys())]
-    assert final[0] == expected_col0, f"Expected col0={expected_col0}, got {final[0]}"
-    dut._log.info("test_single_column_computation PASSED")
+    for j in range(4):
+        assert final[j] == expected_sums[j], f"Expected col{j}={expected_sums[j]}, got {final[j]}"
+    
+    dut._log.info("test_uniform_weight_computation PASSED")
 
 
 @cocotb.test()
-async def test_column_routing_matrix(dut):
-    """Test that all 4 columns compute correctly using full matrix."""
+async def test_asymmetric_matrices(dut):
+    """Test with asymmetric A and B matrices."""
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
     
     await reset_dut(dut)
     
-    # A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
-    # B = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
-    A = [[1,0,0,0], [1,0,0,0], [1,0,0,0], [1,0,0,0]]
+    # Different values in each row
+    A = [[1,2,3,4], [5,6,7,8], [1,1,1,1], [2,2,2,2]]
+    # Different values in each column
     B = [[1,2,3,4], [1,2,3,4], [1,2,3,4], [1,2,3,4]]
     
     C = compute_matrix_product(A, B)
@@ -245,12 +244,11 @@ async def test_column_routing_matrix(dut):
     
     results = await run_systolic_and_capture(dut, A, B)
     
-    # Check final cycle like the other passing tests
     final = results[max(results.keys())]
     for j in range(4):
         assert final[j] == expected_sums[j], f"Expected col{j}={expected_sums[j]}, got {final[j]}"
     
-    dut._log.info("test_column_routing_matrix PASSED")
+    dut._log.info("test_asymmetric_matrices PASSED")
 
 
 @cocotb.test()
